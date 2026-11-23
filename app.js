@@ -13,7 +13,7 @@ ar:{app_name:'كيتشن كوست برو',email:'اسم المستخدم (حرو
  language:'اللغة',default_language:'اللغة الافتراضية للتطبيق',my_language:'لغتي المفضلة',currency:'العملة',saved:'تم الحفظ',no_data:'لا توجد بيانات',
  total_branches:'عدد الفروع',total_items:'عدد المكونات',total_suppliers:'عدد الموردين',recent_activity:'آخر النشاطات',confirm_archive:'تأكيد تغيير الحالة؟',
  role_owner:'المالك',role_accounting_manager:'مدير الحسابات',role_operations_manager:'مدير العمليات',role_branch_manager:'مدير فرع',role_storekeeper:'أمين مخزن',role_chef:'شيف / مدير إنتاج',role_employee:'موظف',
- check_email:'تم إنشاء الحساب. افحص بريدك لتأكيده ثم سجّل الدخول.',coming:'المراحل القادمة: الوصفات، الإنتاج، المخزون، المشتريات، التحويلات، المصروفات، الكومبو، التقارير.'},
+ check_email:'تم إنشاء الحساب. افحص بريدك لتأكيده ثم سجّل الدخول.',coming:'المراحل القادمة: الإنتاج، المخزون، المشتريات، التحويلات، المصروفات، الكومبو، التقارير.'},
 en:{app_name:'Kitchen Cost Pro',email:'Username (letters or numbers)',password:'Code (6+ characters)',full_name:'Full name',login:'Sign in',signup:'Sign up',logout:'Sign out',
  dashboard:'Dashboard',ingredients:'Ingredients',categories:'Categories',suppliers:'Suppliers',branches:'Branches',users:'Users & Permissions',audit:'Audit Log',settings:'Settings',
  add:'Add',edit:'Edit',save:'Save',cancel:'Cancel',search:'Search...',archive:'Archive',restore:'Restore',actions:'Actions',
@@ -25,8 +25,9 @@ en:{app_name:'Kitchen Cost Pro',email:'Username (letters or numbers)',password:'
  language:'Language',default_language:'Application default language',my_language:'My preferred language',currency:'Currency',saved:'Saved',no_data:'No data',
  total_branches:'Branches',total_items:'Ingredients',total_suppliers:'Suppliers',recent_activity:'Recent activity',confirm_archive:'Confirm status change?',
  role_owner:'Owner',role_accounting_manager:'Accounting Manager',role_operations_manager:'Operations Manager',role_branch_manager:'Branch Manager',role_storekeeper:'Storekeeper',role_chef:'Chef / Production Manager',role_employee:'Employee',
- check_email:'Account created. Check your email to confirm, then sign in.',coming:'Coming next: recipes, production, inventory, purchases, transfers, expenses, combos, reports.'}
+ check_email:'Account created. Check your email to confirm, then sign in.',coming:'Coming next: production, inventory, purchases, transfers, expenses, combos, reports.'}
 };
+Object.assign(I18N.ar, RI18N.ar); Object.assign(I18N.en, RI18N.en);
 const ROLES=['owner','accounting_manager','operations_manager','branch_manager','storekeeper','chef','employee'];
 
 let lang = localStorage.getItem('lang') || 'ar';
@@ -95,6 +96,7 @@ async function loadRefs(){
   for (const k of Object.keys(REF)) {
     const {data} = await sb.from(k).select('*').order(k==='units'?'code':'name_ar');
     REF[k] = data || [];
+    if (k === 'units') { const o = ['kg','g','l','ml','piece','box','carton','pack','bottle']; const ix = u => o.includes(u.code) ? o.indexOf(u.code) : 99; REF.units.sort((x,y) => ix(x) - ix(y)); }
   }
 }
 async function boot(){
@@ -113,7 +115,7 @@ async function boot(){
 
 /* ---------- الهيكل ---------- */
 const NAV = [
-  {k:'dashboard',i:'▦'},{k:'items',l:'ingredients',i:'🧂'},{k:'categories',i:'🏷️'},{k:'suppliers',i:'🚚'},
+  {k:'dashboard',i:'▦'},{k:'items',l:'ingredients',i:'🧂'},{k:'categories',i:'🏷️'},{k:'suppliers',i:'🚚'},{k:'recipes',i:'🍲'},
   {k:'branches',i:'🏬'},{k:'users',i:'👥',owner:true},{k:'audit',i:'📜',perm:'audit.view'},{k:'settings',i:'⚙️'}
 ];
 function render(){
@@ -127,23 +129,23 @@ function render(){
         <span>${esc(me.full_name)} · ${t('role_'+me.role)}</span>${langBtn()}<button class="btn g s" id="out">${t('logout')}</button></div>
       <div class="content" id="content"></div>
     </div></div>`;
-  document.querySelectorAll('.nav').forEach(b => b.onclick = () => { page = b.dataset.p; render(); });
+  document.querySelectorAll('.nav').forEach(b => b.onclick = () => { page = b.dataset.p; recipeView = null; render(); });
   $('#menuBtn').onclick = () => $('#side').classList.toggle('open');
   $('#out').onclick = async () => { await sb.auth.signOut(); me = null; renderAuth(); };
   route();
 }
 function route(){
   if (MODULES[page]) return renderCrud(page);
-  ({dashboard:pageDashboard, users:pageUsers, audit:pageAudit, settings:pageSettings}[page] || pageDashboard)();
+  ({dashboard:pageDashboard, recipes:pageRecipes, users:pageUsers, audit:pageAudit, settings:pageSettings}[page] || pageDashboard)();
 }
 
 /* ---------- وحدات CRUD العامة ---------- */
 const MODULES = {
-  items:{table:'items',title:'ingredients',perm:'items.manage',cols:['code','name','category_id','base_unit_id','last_price','avg_price','min_stock','is_active'],
+  items:{table:'items',title:'ingredients',perm:'items.manage',cols:['thumb','code','name','category_id','base_unit_id','last_price','yield_pct','usable_cost','min_stock','is_active'],
     fields:[{k:'code',type:'text',req:1},{k:'name_ar',type:'text',req:1},{k:'name_en',type:'text'},
       {k:'category_id',type:'ref',ref:'ingredient_categories'},{k:'base_unit_id',type:'ref',ref:'units',req:1},{k:'purchase_unit_id',type:'ref',ref:'units'},
       {k:'conversion_factor',type:'number',def:1},{k:'min_stock',type:'number',def:0},{k:'preferred_supplier_id',type:'ref',ref:'suppliers'},
-      {k:'storage_location',type:'text'},{k:'track_expiry',type:'check'},
+      {k:'storage_location',type:'text'},{k:'track_expiry',type:'check'},{k:'yield_pct',type:'number',def:100},{k:'emoji',type:'text'},{k:'image_url',type:'image'},
       {k:'last_price',type:'number',perm:'items.price',def:0},{k:'avg_price',type:'number',perm:'items.price',def:0},
       {k:'description',type:'area'},{k:'notes',type:'area'},{k:'is_active',type:'check',def:true}]},
   categories:{table:'ingredient_categories',title:'categories',perm:'items.manage',cols:['name','is_active'],
@@ -158,7 +160,10 @@ const MODULES = {
 const REFTABLE = {category_id:'ingredient_categories',base_unit_id:'units',purchase_unit_id:'units',preferred_supplier_id:'suppliers'};
 
 function cell(m, r, c){
-  if (c === 'name') return esc(nm(r));
+  if (c === 'thumb') return thumb(r);
+  if (c === 'usable_cost') return nf((Number(r.last_price)||0) / ((Number(r.yield_pct)||100)/100));
+  if (c === 'yield_pct') return nf(r.yield_pct) + '%';
+  if (c === 'name') return esc(nm(r)) + demoTag(r);
   if (REFTABLE[c]) return esc(refLabel(REFTABLE[c], r[c]));
   const f = m.fields.find(x => x.k === c) || {};
   if (f.type === 'check') return `<span class="tag ${r[c]?'':'off'}">${r[c] ? '✓' : '✗'}</span>`;
@@ -195,11 +200,12 @@ function fieldHtml(f, v){
   const id = 'f_' + f.k; let inp;
   if (f.type === 'ref') inp = `<select id="${id}"><option value=""></option>${REF[f.ref].map(r => `<option value="${r.id}" ${r.id===v?'selected':''}>${esc(nm(r))}</option>`).join('')}</select>`;
   else if (f.type === 'check') inp = `<input type="checkbox" id="${id}" ${v?'checked':''}>`;
+  else if (f.type === 'image') inp = (v ? `<div style="margin-bottom:6px"><img src="${esc(v)}" class="th" style="width:64px;height:64px"></div>` : '') + `<input type="file" id="${id}" accept="image/png,image/jpeg,image/webp">`;
   else if (f.type === 'area') inp = `<textarea id="${id}" rows="2">${esc(v)}</textarea>`;
   else inp = `<input id="${id}" type="${f.type==='number'?'number':'text'}" step="any" value="${esc(v)}">`;
   return `<div class="fl"><label>${t(f.k)}${f.req?' *':''}</label>${inp}</div>`;
 }
-function form(m, key, rec){
+function form(m, key, rec, after){
   const fields = m.fields.filter(f => has(f.perm));
   const o = openModal(`<h3>${rec ? t('edit') : t('add')}</h3>${fields.map(f => fieldHtml(f, rec ? rec[f.k] : f.def)).join('')}
     <div class="bar"><button class="btn" id="sv">${t('save')}</button><button class="btn g" id="cn">${t('cancel')}</button></div>`);
@@ -208,6 +214,7 @@ function form(m, key, rec){
     const body = {};
     for (const f of fields) {
       const el = o.querySelector('#f_' + f.k);
+      if (f.type === 'image') { const file = el.files && el.files[0]; if (file) { const url = await uploadImage(file); if (!url) return; body[f.k] = url; } continue; }
       let v = f.type === 'check' ? el.checked : el.value.trim();
       if (f.type === 'number') v = v === '' ? null : Number(v);
       if (v === '') v = null;
@@ -217,14 +224,14 @@ function form(m, key, rec){
     const q = rec ? sb.from(m.table).update(body).eq('id', rec.id) : sb.from(m.table).insert(body);
     const {error} = await q;
     if (error) return toast(error.message, true);
-    o.remove(); toast(t('saved')); await loadRefs(); renderCrud(key);
+    o.remove(); toast(t('saved')); await loadRefs(); if (after) after(); else renderCrud(key);
   };
 }
 
 /* ---------- الصفحات الخاصة ---------- */
 async function count(tbl){ const {count:c} = await sb.from(tbl).select('*',{count:'exact',head:true}); return c || 0; }
 async function pageDashboard(){
-  const [b,i,s] = await Promise.all([count('branches'), count('items'), count('suppliers')]);
+  const [b,i,s,rc] = await Promise.all([count('branches'), count('items'), count('suppliers'), count('recipes')]);
   let act = '';
   if (has('audit.view')) {
     const {data} = await sb.from('audit_logs').select('*').order('created_at',{ascending:false}).limit(8);
@@ -234,7 +241,8 @@ async function pageDashboard(){
   $('#content').innerHTML = `<div class="bar"><h1>${t('dashboard')}</h1></div>
     <div class="grid"><div class="card stat"><b>${nf(b)}</b><span>${t('total_branches')}</span></div>
     <div class="card stat"><b>${nf(i)}</b><span>${t('total_items')}</span></div>
-    <div class="card stat"><b>${nf(s)}</b><span>${t('total_suppliers')}</span></div></div>${act}
+    <div class="card stat"><b>${nf(s)}</b><span>${t('total_suppliers')}</span></div>
+    <div class="card stat"><b>${nf(rc)}</b><span>${t('total_recipes')}</span></div></div>${act}
     <p style="color:var(--mu)">${t('coming')}</p>`;
 }
 async function pageUsers(){

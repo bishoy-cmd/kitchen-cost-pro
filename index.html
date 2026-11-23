@@ -52,12 +52,22 @@ pre{white-space:pre-wrap;word-break:break-word;background:#f8fafc;padding:8px;bo
  .side.open{transform:none!important}
  #menuBtn{display:inline-block}
 }
+.th{width:36px;height:36px;object-fit:cover;border-radius:8px;vertical-align:middle}
+.em{font-size:24px;vertical-align:middle}
+.embig{font-size:58px}
+.rimgbig{width:100%;height:100%;object-fit:cover}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.rcard{cursor:pointer}.rcard:hover{border-color:var(--pri)}
+.rimg{height:110px;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.kv{display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-size:14px}.kv span{color:var(--mu)}
+.tag.demo{background:#fef3c7;color:#92400e}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="recipes.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
