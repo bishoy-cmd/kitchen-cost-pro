@@ -2,7 +2,7 @@
 const sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
 
 const I18N = {
-ar:{app_name:'كيتشن كوست برو',email:'البريد الإلكتروني',password:'كلمة المرور',full_name:'الاسم الكامل',login:'تسجيل الدخول',signup:'إنشاء حساب',logout:'خروج',
+ar:{app_name:'كيتشن كوست برو',email:'اسم المستخدم (حروف إنجليزية أو أرقام)',password:'الكود (6 أرقام أو أكتر)',full_name:'الاسم الكامل',login:'تسجيل الدخول',signup:'إنشاء حساب',logout:'خروج',
  dashboard:'لوحة التحكم',ingredients:'المكونات',categories:'التصنيفات',suppliers:'الموردون',branches:'الفروع',users:'المستخدمون والصلاحيات',audit:'سجل التدقيق',settings:'الإعدادات',
  add:'إضافة',edit:'تعديل',save:'حفظ',cancel:'إلغاء',search:'بحث...',archive:'أرشفة',restore:'استعادة',actions:'إجراءات',
  code:'الكود',name:'الاسم',name_ar:'الاسم بالعربية',name_en:'الاسم بالإنجليزية',category_id:'التصنيف',base_unit_id:'الوحدة الأساسية',purchase_unit_id:'وحدة الشراء',
@@ -14,7 +14,7 @@ ar:{app_name:'كيتشن كوست برو',email:'البريد الإلكترون
  total_branches:'عدد الفروع',total_items:'عدد المكونات',total_suppliers:'عدد الموردين',recent_activity:'آخر النشاطات',confirm_archive:'تأكيد تغيير الحالة؟',
  role_owner:'المالك',role_accounting_manager:'مدير الحسابات',role_operations_manager:'مدير العمليات',role_branch_manager:'مدير فرع',role_storekeeper:'أمين مخزن',role_chef:'شيف / مدير إنتاج',role_employee:'موظف',
  check_email:'تم إنشاء الحساب. افحص بريدك لتأكيده ثم سجّل الدخول.',coming:'المراحل القادمة: الوصفات، الإنتاج، المخزون، المشتريات، التحويلات، المصروفات، الكومبو، التقارير.'},
-en:{app_name:'Kitchen Cost Pro',email:'Email',password:'Password',full_name:'Full name',login:'Sign in',signup:'Sign up',logout:'Sign out',
+en:{app_name:'Kitchen Cost Pro',email:'Username (letters or numbers)',password:'Code (6+ characters)',full_name:'Full name',login:'Sign in',signup:'Sign up',logout:'Sign out',
  dashboard:'Dashboard',ingredients:'Ingredients',categories:'Categories',suppliers:'Suppliers',branches:'Branches',users:'Users & Permissions',audit:'Audit Log',settings:'Settings',
  add:'Add',edit:'Edit',save:'Save',cancel:'Cancel',search:'Search...',archive:'Archive',restore:'Restore',actions:'Actions',
  code:'Code',name:'Name',name_ar:'Arabic name',name_en:'English name',category_id:'Category',base_unit_id:'Base unit',purchase_unit_id:'Purchase unit',
@@ -60,22 +60,31 @@ async function setLang(l){
 /* ---------- الدخول ---------- */
 function langBtn(){ return `<button class="btn g s" onclick="setLang('${lang==='ar'?'en':'ar'}')">${lang==='ar'?'English':'العربية'}</button>`; }
 
+const userVal = () => ($('#a_email').value || '').trim().toLowerCase();
+const toEmail = () => userVal() + '@kitchen-cost.app';
+function okUser(){
+  if (!/^[a-z0-9._-]{3,30}$/.test(userVal())) { toast(lang==='ar' ? 'اسم المستخدم: 3 إلى 30 حرف إنجليزي أو أرقام فقط' : 'Username: 3-30 letters or numbers only', true); return false; }
+  if (($('#a_pass').value || '').length < 6) { toast(lang==='ar' ? 'الكود لازم يكون 6 على الأقل' : 'Code must be at least 6 characters', true); return false; }
+  return true;
+}
 function renderAuth(){
   applyLang();
   $('#app').innerHTML = `<div class="auth"><div class="card">
     <div class="bar"><h1>${t('app_name')}</h1>${langBtn()}</div>
     <div class="fl"><label>${t('full_name')}</label><input id="a_name"></div>
-    <div class="fl"><label>${t('email')}</label><input id="a_email" type="email" autocomplete="email"></div>
+    <div class="fl"><label>${t('email')}</label><input id="a_email" type="text" autocomplete="username" autocapitalize="off" autocorrect="off" dir="ltr"></div>
     <div class="fl"><label>${t('password')}</label><input id="a_pass" type="password" autocomplete="current-password"></div>
     <div class="bar"><button class="btn" id="a_in">${t('login')}</button><button class="btn g" id="a_up">${t('signup')}</button></div>
   </div></div>`;
   $('#a_in').onclick = async () => {
-    const {error} = await sb.auth.signInWithPassword({email:$('#a_email').value.trim(), password:$('#a_pass').value});
+    if (!okUser()) return;
+    const {error} = await sb.auth.signInWithPassword({email:toEmail(), password:$('#a_pass').value});
     if (error) return toast(error.message, true);
     boot();
   };
   $('#a_up').onclick = async () => {
-    const {data,error} = await sb.auth.signUp({email:$('#a_email').value.trim(), password:$('#a_pass').value, options:{data:{full_name:$('#a_name').value.trim()}}});
+    if (!okUser()) return;
+    const {data,error} = await sb.auth.signUp({email:toEmail(), password:$('#a_pass').value, options:{data:{full_name:$('#a_name').value.trim()}}});
     if (error) return toast(error.message, true);
     if (data.session) boot(); else toast(t('check_email'));
   };
